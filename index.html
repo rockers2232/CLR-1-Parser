@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLR(1) Parser Engine Pro</title>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;800&display=swap');
+    
+    body { font-family: 'Inter', sans-serif; background: #020617; color: #f8fafc; margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    
+    /* Custom Scrollbar for Dashboard */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    
+    .header { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); padding: 18px 35px; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 10; }
+    .header h1 { color: #38bdf8; margin: 0; font-weight: 800; font-size: 50px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 10px; }
+    .header h1::before { content: ""; display: block; width: 12px; height: 12px; background: #38bdf8; border-radius: 50%; box-shadow: 0 0 10px #38bdf8; }
+    .header .author { color: #94a3b8; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+    
+    .app-container { display: flex; flex: 1; overflow: hidden; }
+    
+    .sidebar { width: 260px; background: #0f172a; border-right: 1px solid #1e293b; display: flex; flex-direction: column; padding: 25px 0; z-index: 5; }
+    .sidebar-btn { background: transparent; color: #64748b; border: none; padding: 16px 30px; text-align: left; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s; border-left: 3px solid transparent; display: flex; align-items: center; gap: 12px; }
+    .sidebar-btn:hover { color: #e2e8f0; background: rgba(30, 41, 59, 0.5); }
+    .sidebar-btn.active { color: #38bdf8; border-left: 3px solid #38bdf8; background: linear-gradient(90deg, rgba(56, 189, 248, 0.1) 0%, transparent 100%); }
+    
+    .main-content { flex: 1; padding: 30px; background: radial-gradient(circle at top right, #0f172a, #020617); overflow: hidden; display: flex; flex-direction: column; }
+    
+    .panel { display: none; height: 100%; flex: 1; flex-direction: column; animation: fadeIn 0.4s ease-out; overflow: hidden; }
+    .panel.active { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .glass-box { background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 12px; padding: 25px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); backdrop-filter: blur(8px); flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .glass-box h3 { color: #e2e8f0; margin-top: 0; padding-bottom: 15px; font-size: 18px; border-bottom: 1px solid #1e293b; margin-bottom: 15px; flex-shrink: 0; }
+    
+    /* NEW SCROLL CONTAINER FOR INTERNAL DASHBOARD SCROLLING */
+    .scroll-container { flex: 1; overflow: auto; padding-right: 5px; }
+    
+    .editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+    .editor-title { color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: 13px; letter-spacing: 1.5px; }
+    
+    .editor-wrapper { display: flex; flex: 1; background: #020617; border: 1px solid #334155; border-radius: 8px; overflow: hidden; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5); }
+    .line-numbers { padding: 20px 15px; background: #0f172a; color: #475569; font-family: 'Fira Code', monospace; font-size: 15px; text-align: right; user-select: none; border-right: 1px solid #1e293b; line-height: 1.6; overflow: hidden; }
+    .line-numbers div { height: 24px; }
+    .line-numbers div.error { color: #ef4444; background: rgba(239, 68, 68, 0.15); font-weight: bold; border-radius: 4px; border-left: 2px solid #ef4444; padding-right: 8px; margin-right: -15px; margin-left: -15px; padding-left: 13px; }
+    
+    #codeInput { flex: 1; background: transparent; color: #7dd3fc; font-family: 'Fira Code', monospace; font-size: 15px; border: none; padding: 20px; resize: none; outline: none; line-height: 1.6; white-space: pre; overflow: auto; }
+    
+    button.run-btn { background: #0ea5e9; color: white; padding: 14px 35px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3); }
+    button.run-btn:hover { background: #38bdf8; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4); }
+    button.run-btn:active { transform: translateY(1px); }
+    
+    .status-banner { padding: 18px 25px; margin-bottom: 25px; border-radius: 8px; font-weight: 500; display: none; font-size: 15px; border-left: 4px solid transparent; animation: slideIn 0.3s ease; flex-shrink: 0; }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+    .status-acc { background: rgba(16, 185, 129, 0.1); color: #34d399; border-color: #10b981; }
+    .status-err { background: rgba(239, 68, 68, 0.1); color: #f87171; border-color: #ef4444; }
+    
+    table { width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Fira Code', monospace; font-size: 13px; }
+    th, td { border-bottom: 1px solid #1e293b; padding: 14px; text-align: left; }
+    th { background: rgba(2, 6, 23, 0.95); color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 12px; position: sticky; top: 0; z-index: 2; backdrop-filter: blur(4px); }
+    tr:hover td { background: rgba(30, 41, 59, 0.4); }
+    
+    .grammar-list { font-family: 'Fira Code', monospace; font-size: 14px; color: #cbd5e1; line-height: 1.8; }
+    .grammar-list span.lhs { color: #fcd34d; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <center><h1>CLR(1) C++ Parser Engine 👨🏻‍💻 </h1></center>
+    
+</div>
+
+<div class="app-container">
+    <div class="sidebar">
+        <button class="sidebar-btn active" onclick="switchNav('editor')">Code Editor</button>
+        <button class="sidebar-btn" onclick="switchNav('trace')">Parse Trace</button>
+        <button class="sidebar-btn" onclick="switchNav('matrix')">Automaton Matrix</button>
+        <button class="sidebar-btn" onclick="switchNav('grammar')">Grammar Rules</button>
+    </div>
+
+    <div class="main-content">
+        <div id="statusBanner" class="status-banner"></div>
+
+        <div id="editor" class="panel active">
+            <div class="glass-box">
+                <div class="editor-header">
+                    <span class="editor-title">Source Code</span>
+                    <button class="run-btn" onclick="parseCode()">Compile Source</button>
+                </div>
+                <div class="editor-wrapper">
+                    <div id="line-numbers" class="line-numbers"></div>
+                    <textarea id="codeInput" spellcheck="false" wrap="off">#include<iostream>
+using namespace std;
+int main() { 
+    int a = 6, b = 7;
+    for(int i = 0; i < 8; i++) {
+        b = b - 1;
+    }
+    while(a != 0) {
+        a--;
+    }
+    cout << a + b;
+}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <div id="trace" class="panel">
+            <div class="glass-box">
+                <h3>Memory Stack Execution Trace</h3>
+                <div class="scroll-container">
+                    <table id="traceTable">
+                        <thead><tr><th style="width: 45%;">Stack Sequence</th><th style="width: 40%; text-align: right;">Lookahead Input</th><th>Parser Action</th></tr></thead>
+                        <tbody><tr><td colspan="3" style="text-align: center; color: #475569; padding: 40px;">Compile source to view stack trace...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="matrix" class="panel">
+            <div class="glass-box">
+                <h3>Automaton Action & Goto Matrix</h3>
+                <div class="scroll-container" id="parseTableContainer">
+                    <p style="text-align: center; color: #475569; padding: 40px;">Compile source to calculate closures...</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="grammar" class="panel">
+            <div class="glass-box" style="margin-bottom: 25px;">
+                <h3>Universal Grammar</h3>
+                <div class="scroll-container grammar-list" id="grammarPanel"><p style="color: #475569;">Awaiting engine execution...</p></div>
+            </div>
+            <div class="glass-box">
+                <h3>FIRST & FOLLOW Sets</h3>
+                <div class="scroll-container grammar-list" id="ffPanel"><p style="color: #475569;">Awaiting engine execution...</p></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const textarea = document.getElementById('codeInput');
+    const lineNumbers = document.getElementById('line-numbers');
+
+    function updateLineNumbers(errorLine = null) {
+        const lines = textarea.value.split('\n').length;
+        lineNumbers.innerHTML = Array(lines).fill(0).map((_, i) => {
+            const num = i + 1;
+            return `<div ${num === errorLine ? 'class="error"' : ''}>${num}</div>`;
+        }).join('');
+    }
+
+    textarea.addEventListener('input', () => updateLineNumbers());
+    textarea.addEventListener('scroll', () => { lineNumbers.scrollTop = textarea.scrollTop; });
+    updateLineNumbers();
+
+    function switchNav(panelId) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(panelId).classList.add('active');
+        const activeBtn = document.querySelector(`.sidebar-btn[onclick="switchNav('${panelId}')"]`);
+        if (activeBtn) activeBtn.classList.add('active');
+    }
+
+    async function parseCode() {
+        const code = textarea.value;
+        const banner = document.getElementById('statusBanner');
+        banner.style.display = 'block';
+        banner.className = 'status-banner';
+        banner.style.color = '#94a3b8';
+        banner.innerHTML = "Executing CLR(1) engine...";
+        updateLineNumbers(); 
+
+        try {
+            const response = await fetch('/parse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: code })
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+
+            if (data.error) {
+                banner.className = 'status-banner status-err';
+                banner.innerHTML = data.error.replace(/\\n/g, '<br>');
+                return;
+            }
+
+            if (data.status.includes('REJECTED')) {
+                banner.className = 'status-banner status-err';
+                banner.innerHTML = data.status;
+                const match = data.status.match(/Line (\d+)/);
+                if (match) updateLineNumbers(parseInt(match[1]));
+                switchNav('editor');
+            } else {
+                banner.className = 'status-banner status-acc';
+                banner.innerHTML = data.status;
+                switchNav('trace');
+            }
+
+            const tbodyTrace = document.querySelector('#traceTable tbody');
+            tbodyTrace.innerHTML = '';
+            data.trace.forEach(row => {
+                let color = row.action.startsWith('S') ? '#38bdf8' : row.action.startsWith('R') ? '#c084fc' : row.action === 'Accept' ? '#34d399' : '#f87171';
+                tbodyTrace.innerHTML += `<tr>
+                    <td style="color:#cbd5e1; white-space: nowrap;">${row.stack}</td>
+                    <td style="color:#64748b; text-align:right; white-space: nowrap;">${row.input}</td>
+                    <td style="color:${color}; font-weight:600; white-space: nowrap;">${row.action}</td>
+                </tr>`;
+            });
+
+            document.getElementById('grammarPanel').innerHTML = data.grammar.map(row => 
+                `<div>${row.rule}. <span class="lhs">${row.lhs}</span> &rarr; ${row.rhs}</div>`
+            ).join('');
+
+            document.getElementById('ffPanel').innerHTML = data.first_follow.map(row => 
+                `<div style="margin-bottom:12px;"><span class="lhs">${row.nt}</span><br>FIRST: { ${row.first} }<br>FOLLOW: { ${row.follow} }</div>`
+            ).join('');
+
+            buildParsingTable(data.action, data.goto);
+
+        } catch (err) {
+            banner.className = 'status-banner status-err';
+            banner.innerHTML = "System Fault: Validate backend connectivity.";
+        }
+    }
+
+    function buildParsingTable(actionData, gotoData) {
+        let terminals = new Set(), nonTerminals = new Set(), states = new Set(), map = {};
+        actionData.forEach(item => { states.add(parseInt(item.state)); terminals.add(item.sym); if (!map[item.state]) map[item.state] = {}; map[item.state][item.sym] = item.act; });
+        gotoData.forEach(item => { states.add(parseInt(item.state)); nonTerminals.add(item.nt); if (!map[item.state]) map[item.state] = {}; map[item.state][item.nt] = item.go; });
+
+        let sStates = Array.from(states).sort((a,b) => a-b);
+        let sTerms = Array.from(terminals).sort();
+        let sNTs = Array.from(nonTerminals).sort();
+
+        let html = `<table><thead><tr><th rowspan="2" style="background:#020617; text-align:center;">State</th><th colspan="${sTerms.length}" style="text-align:center; color:#38bdf8;">ACTION</th><th colspan="${sNTs.length}" style="text-align:center; color:#fcd34d;">GOTO</th></tr><tr>`;
+        sTerms.forEach(t => html += `<th style="color:#94a3b8; text-align:center;">${t}</th>`);
+        sNTs.forEach(nt => html += `<th style="color:#94a3b8; text-align:center;">${nt}</th>`);
+        html += `</tr></thead><tbody>`;
+
+        sStates.forEach(s => {
+            html += `<tr><td style="font-weight:bold; color:#64748b; text-align:center; background:#020617;">${s}</td>`;
+            sTerms.forEach(t => {
+                let val = (map[s] && map[s][t]) ? map[s][t] : '';
+                let col = val.startsWith('S') ? '#38bdf8' : val.startsWith('R') ? '#c084fc' : val === 'ACC' ? '#34d399' : '';
+                html += `<td style="color:${col}; text-align:center;">${val}</td>`;
+            });
+            sNTs.forEach(nt => html += `<td style="color:#fcd34d; text-align:center;">${(map[s] && map[s][nt]) ? map[s][nt] : ''}</td>`);
+            html += `</tr>`;
+        });
+        document.getElementById('parseTableContainer').innerHTML = html + `</tbody></table>`;
+    }
+</script>
+</body>
+</html>
